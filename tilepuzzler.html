@@ -1,0 +1,2960 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:mso="urn:schemas-microsoft-com:office:office"
+  xmlns:msdt="uuid:C2F41010-65B3-11d1-A29F-00AA00C14882">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tile Assembler</title>
+  <style>
+    :root {
+      --bg: #5879a1ad;
+      --panel: #6889bbad;
+      --muted: #5f718a;
+      --text: #e8eef8;
+      --acc: #3aa0ff;
+      --acc2: #2ecc71;
+      --danger: #ff5c5c;
+      --piece-size: 140px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      overflow: hidden;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-box {
+      background: #647288;
+      color: #fff;
+      padding: 1.5rem;
+      border-radius: .8rem;
+      max-width: 400px;
+      font-size: 1.5rem;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      animation: fadeIn 1s ease;
+    }
+
+    .modal-box button {
+      margin-top: 1rem;
+      padding: .5rem 1rem;
+      border: none;
+      border-radius: .5rem;
+      background: #28a745;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    @keyframes fadeIn {
+      from {
+        transform: scale(0.1);
+        opacity: 0;
+      }
+
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    @keyframes fadeOut {
+      from {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      to {
+        transform: scale(.5);
+        opacity: 0;
+      }
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      /* ✅ allow wrapping to new lines */
+      gap: .5rem;
+      align-items: center;
+      padding: .5rem 1rem;
+      background: linear-gradient(180deg, #0e141b, #0c1218);
+      border-bottom: 1px solid #1b2430;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      touch-action: none;
+    }
+
+    .toolbar input,
+    .toolbar select,
+    .toolbar button {
+      background: #0f1620;
+      color: var(--text);
+      border: 1px solid #e4e4e4;
+      border-radius: .6rem;
+      padding: .45rem .6rem;
+      cursor: pointer;
+    }
+
+    .menu-bar {
+      position: relative;
+      display: flex;
+      background: #0f1620;
+      /* Match toolbar background */
+      padding: 0.2rem 0.5rem;
+      border-radius: .6rem;
+      margin-right: 10px;
+      /* Space from other toolbar items */
+    }
+
+    .menu-item {
+      position: relative;
+      padding: 0.45rem 0.6rem;
+      cursor: pointer;
+      color: var(--text);
+      border-radius: .4rem;
+      transition: background 0.2s;
+    }
+
+    .menu-item:hover {
+      background: #374b64;
+      /* Slightly darker on hover */
+    }
+
+    .dropdown-menu {
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      pointer-events: none;
+      /* Prevent interaction when hidden */
+      position: absolute;
+      top: 100%;
+      /* Position below the menu item */
+      left: 0;
+      background: #0f1620;
+      /* Match menu bar background */
+      border: 1px solid #2a3a4f;
+      border-radius: .6rem;
+      min-width: 180px;
+      z-index: 10;
+      /* Ensure it's above other content */
+      list-style: none;
+      /* Remove bullet points */
+      padding: 0.5rem 0;
+      margin: 0;
+    }
+
+    .menu-item.show-dropdown>.dropdown-menu {
+      /* Only direct child dropdowns */
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      /* Allow interaction when visible */
+    }
+
+    .dropdown-menu li {
+      padding: 0.4rem 1rem;
+      cursor: pointer;
+      color: var(--text);
+    }
+
+    .dropdown-menu li:hover {
+      background: #374b64;
+      /* Highlight on hover */
+    }
+
+    .separator {
+      height: 1px;
+      background-color: #2a3a4f;
+      /* Dark line for separator */
+      margin: 0.5rem 0;
+      list-style: none;
+      /* Ensure no bullet point */
+      padding: 0;
+      /* Remove padding */
+    }
+
+    .has-submenu {
+      position: relative;
+      padding-right: 10px;
+      /* Extend hover area */
+    }
+
+    .has-submenu>.submenu {
+      top: 0;
+      left: 100%;
+      /* Position submenu to the right */
+      opacity: 0;
+      /* Explicitly hide submenus */
+      visibility: hidden;
+      /* Explicitly hide submenus */
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      /* Added transition */
+      pointer-events: none;
+      /* Added pointer-events */
+    }
+
+    .has-submenu:hover>.submenu {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      /* Allow interaction when visible */
+    }
+
+    .toolbar select {
+      /* restrict width */
+      white-space: normal;
+      /* ✅ allow wrapping */
+    }
+
+    .toolbar .group {
+      display: flex;
+      gap: .5rem;
+      align-items: center;
+    }
+
+    .right-group {
+      margin-left: auto;
+      /* pushes this group to the far right */
+      display: flex;
+      /* keep its children in a row */
+      gap: .5rem;
+      /* space between children */
+      align-items: center;
+      /* vertically align */
+    }
+
+    .split {
+      position: fixed;
+      inset: 42px 0 0 0;
+      display: flex;
+      min-height: 0;
+    }
+
+    .left {
+      flex: 1;
+      min-width: 200px;
+      background: radial-gradient(ellipse at top left, #101722, #0c1218 55%);
+      position: relative;
+      overflow: hidden;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .divider {
+      width: 20px;
+      cursor: col-resize;
+      background: #d1cfcf;
+      border-left: 1px solid #1b2430;
+      border-right: 1px solid #1b2430;
+      touch-action: none;
+    }
+
+    .right {
+      width: 380px;
+      min-width: 260px;
+      max-width: 60vw;
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      touch-action: none;
+
+
+    }
+
+    .board-wrap {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      touch-action: none;
+      background: linear-gradient(180deg, #6ba4e69c, #30486193);
+      /* this creates the “viewport” */
+    }
+
+    .board-viewport {
+      position: absolute;
+      left: 0;
+      top: 0;
+      will-change: transform;
+    }
+
+    .board {
+      position: absolute;
+      left: 0;
+      top: 0;
+      image-rendering: pixelated;
+
+    }
+
+    canvas {
+      display: block;
+    }
+
+    .pieces-toolbar {
+      display: flex;
+      gap: .5rem;
+      align-items: center;
+      padding: .5rem;
+      border-bottom: 1px solid #1b2430;
+      flex-shrink: 0;
+    }
+
+    .pieces-list {
+      flex: 1;
+      overflow: auto;
+      padding: 1rem;
+      background: linear-gradient(180deg, #6ba4e69c, #30486193);
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(var(--piece-size), 1fr));
+      gap: .6rem;
+      min-height: 0;
+    }
+
+    .piece {
+      border-radius: .6rem;
+      padding: .4rem;
+      display: flex;
+      flex-direction: column;
+      gap: .3rem;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .piece img,
+    .piece canvas {
+      width: 100%;
+      aspect-ratio: 1/1;
+      max-width: var(--piece-size);
+      object-fit: contain;
+      image-rendering: pixelated;
+      border-radius: .4rem;
+      display: block;
+      -webkit-user-drag: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .piece .meta {
+      font-size: .75rem;
+      color: var(--muted);
+      word-break: break-all;
+    }
+
+    .badge {
+      font-size: .7rem;
+      padding: .15rem .4rem;
+      border-radius: .4rem;
+      border: 1px solid #2a3a4f;
+      color: #9fb4d6;
+    }
+
+    .btn {
+      background: #0f1620;
+      border: 1px solid #2a3a4f;
+      border-radius: .6rem;
+      padding: .45rem .7rem;
+      color: #d9e6ff;
+      cursor: pointer;
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn.primary {
+      background: linear-gradient(180deg, #1a66ff, #0a49c7);
+      border-color: #1a66ff;
+    }
+
+    .btn.green {
+      background: linear-gradient(180deg, #2ecc71, #1fa85a);
+      border-color: #2ecc71;
+    }
+
+    .btn.red {
+      background: linear-gradient(180deg, #ff6b6b, #d94c4c);
+      border-color: #ff6b6b;
+    }
+
+    .sep {
+      height: 1.3rem;
+      width: 1px;
+      background: #263244;
+    }
+
+    .status {
+      position: absolute;
+      bottom: .5rem;
+      left: .5rem;
+      background: #0d141d88;
+      border: 1px solid #223044;
+      color: #b8c8e0;
+      padding: .25rem .5rem;
+      border-radius: .5rem;
+      font-size: .8rem;
+    }
+
+    .rightDiv {
+      margin-left: auto;
+    }
+
+    .pieces-count {
+      margin-left: auto;
+      font-size: .8rem;
+      color: "#fff";
+    }
+
+    .pieceSize {
+      margin-left: auto;
+      font-size: .8rem;
+    }
+
+    .btn.right {
+      margin-left: auto;
+      background: linear-gradient(180deg, #2ecc71, #1fa85a);
+      border-color: #2ecc71;
+    }
+
+
+
+
+    .grid {
+      position: absolute;
+      left: 0;
+      top: 0;
+      pointer-events: none;
+      background: transparent !important;
+    }
+
+    .drop-hint {
+      position: absolute;
+      border: 10px solid #fcfc1e;
+      border-radius: .4rem;
+      pointer-events: none;
+      mix-blend-mode: screen;
+    }
+
+
+    .split {
+      position: fixed;
+      inset: 42px 0 0 0;
+      display: flex;
+      min-height: 0;
+    }
+
+    /* New reference panel column */
+    .reference-panel {
+      width: 300px;
+      /* default width */
+      min-width: 150px;
+      max-width: 600px;
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #1b2430;
+      touch-action: none;
+    }
+
+    /* Toolbar inside reference panel */
+    .reference-toolbar {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .5rem;
+      border-bottom: 1px solid #1b2430;
+    }
+
+    /* The actual viewport for the reference image */
+    .reference-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, #6ba4e69c, #30486193);
+      touch-action: none;
+      /* optional, helps the image stand out */
+    }
+
+    #referenceImg2 {
+      position: absolute;
+      left: 0;
+      top: 0;
+      transform-origin: 0 0;
+      max-width: none;
+      /* allow true scaling */
+      image-rendering: pixelated;
+    }
+
+    /* Reference image behaves like your board */
+    #referenceImg {
+      display: block;
+      /* behaves like normal content */
+      transform-origin: 0 0;
+      /* pan/zoom from top-left */
+      max-width: none;
+      /* don't auto-resize */
+      image-rendering: pixelated;
+    }
+
+
+
+    .ref-divider {
+      width: 20px;
+      cursor: col-resize;
+      background: #d1cfcf;
+      border-left: 1px solid #1b2430;
+      border-right: 1px solid #1b2430;
+      touch-action: none;
+    }
+
+    .grid-container {
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+
+    .grid-layer {
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+
+    .grid-cell {
+      position: absolute;
+      left: 0;
+      top: 0;
+      pointer-events: none;
+    }
+
+    .divider,
+    .ref-divider {
+      background: #d1cfcf;
+      transition: background 0.2s;
+    }
+
+    .divider.active,
+    .ref-divider.active {
+      background: #3aa0ff;
+      /* highlight colour while dragging */
+    }
+
+    .tile-container {
+      display: flex;
+      justify-content: flex-start;
+      align-items: flex-start;
+    }
+
+    .tile-image {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+  </style>
+
+  <!--[if gte mso 9]><xml>
+<mso:CustomDocumentProperties>
+<mso:_dlc_DocId msdt:dt="string">M2AXCTX2PWJK-466455079-256106</mso:_dlc_DocId>
+<mso:_dlc_DocIdItemGuid msdt:dt="string">062cea44-84ba-4175-b480-e3ad071c81d7</mso:_dlc_DocIdItemGuid>
+<mso:_dlc_DocIdUrl msdt:dt="string">https://sts2000limited.sharepoint.com/sites/STSFiles/_layouts/15/DocIdRedir.aspx?ID=M2AXCTX2PWJK-466455079-256106, M2AXCTX2PWJK-466455079-256106</mso:_dlc_DocIdUrl>
+</mso:CustomDocumentProperties>
+</xml><![endif]-->
+</head>
+
+<body>
+  <div class="toolbar" id="toolbar">
+    <div class="menu-bar">
+      <div class="menu-item" id="selectPuzzleMenu">
+        Select your puzzle
+        <ul class="dropdown-menu" id="puzzleDropdown">
+          <!-- Puzzle items will be inserted here by JavaScript -->
+        </ul>
+      </div>
+      <div class="menu-item" id="boardMenu">
+        Board
+        <ul class="dropdown-menu" id="boardDropdown">
+          <li id="menuRecentre">Re-centre the puzzle board</li>
+          <li id="menuResetBoard">Reset this puzzle</li>
+          <li id="menuToggleReference">Show/Hide the reference image</li>
+        </ul>
+      </div>
+      <div class="menu-item" id="solverMenu">
+        Solver
+        <ul class="dropdown-menu" id="solverDropdown">
+          <li id="menuSolveThisPuzzle">Solve this puzzle</li>
+          <li class="separator"></li> <!-- Separator -->
+          <li class="has-submenu">Greedy Search
+            <ul class="dropdown-menu submenu">
+              <li id="menuThreshold">
+                Threshold: <input type="number" id="inputThreshold" value="500" min="1" max="20000"
+                  style="width: 80px; background: #1a2430; color: var(--text); border: 1px solid #2a3a4f; border-radius: .4rem; padding: 2px 5px;">
+              </li>
+              <li id="menuUseGreedySolver">Use Greedy Solver</li>
+              <li id="menuUseProgressiveGreedySolver">Use Progressive Greedy Solver</li>
+            </ul>
+          </li>
+          <li class="has-submenu">Global Search
+            <ul class="dropdown-menu submenu">
+              <li id="menuIterations">
+                Iterations: <input type="number" id="inputIterations" value="20000" min="1"
+                  style="width: 80px; background: #1a2430; color: var(--text); border: 1px solid #2a3a4f; border-radius: .4rem; padding: 2px 5px;">
+              </li>
+              <li id="menuUseGlobalSearch">Use Global Search</li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+      <div class="menu-item" id="toolsMenu">
+        Tools
+        <ul class="dropdown-menu" id="toolsDropdown">
+          <li id="menuPieceSize">
+            Piece Size: <input type="range" id="inputPieceSize" min="80" max="1000" value="140" style="width: 100px;">
+          </li>
+          <li id="menuSavePng">Download as an image</li>
+          <li id="menuCreatePuzzle">Create a new puzzle</li>
+          <li id="menuRemoveIncorrect">Remove incorrect tiles</li>
+        </ul>
+      </div>
+      <div class="menu-item" id="hintMenu">Hint!</div>
+    </div>
+    <div class="group">
+
+
+    </div>
+    <div class="sep"></div>
+    <div class="right-group">
+      <div class="pieces-count" id="piecesCount">0 pieces left</div>
+    </div>
+  </div>
+  <div class="split" id="split">
+
+    <!-- Reference panel -->
+    <div class="reference-panel" id="referencePanel">
+      <div class="reference-wrap" id="referenceWrap">
+        <img id="referenceImg">
+      </div>
+    </div>
+
+    <!-- New draggable divider -->
+    <div class="ref-divider" id="refDivider" title="Drag to resize"></div>
+
+
+    <!-- Main board area -->
+    <div class="left" id="left">
+      <div class="board-wrap" id="boardWrap" tabindex="0"
+        aria-label="Canvas area (drag to pan, mouse wheel to zoom, double-click to center)">
+        <div class="board-viewport" id="boardViewport">
+          <div class="grid-layer" id="gridLayer"></div>
+          <canvas class="grid" id="gridCanvas"></canvas>
+          <div class="board" id="board"></div>
+          <div class="drop-hint" id="dropHint" hidden></div>
+        </div>
+      </div>
+      <div class="status" id="status">Ready</div>
+    </div>
+
+    <div class="divider" id="divider" title="Drag to resize"></div>
+
+    <!-- Pieces list sidebar -->
+    <aside class="right">
+      <div id="piecesList" class="pieces-list" aria-live="polite"></div>
+    </aside>
+
+  </div>
+  <canvas id="fireworksCanvas"
+    style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 999; display: none;"></canvas>
+  <!-- For on-device debugging on iPad/Safari 
+  <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
+  <script>var vConsole = new window.VConsole();</script>
+  -->
+  <script>
+
+    // Global Variables
+
+
+    const els = id => document.getElementById(id);
+    const boardWrap = els('boardWrap');
+    const board = els('board');
+    const gridCanvas = els('gridCanvas');
+    const dropHint = els('dropHint');
+    const status = els('status');
+    const piecesList = els('piecesList');
+    const menuSavePng = els('menuSavePng');
+    const menuCreatePuzzle = els('menuCreatePuzzle');
+    const piecesCount = els('piecesCount');
+
+    const referenceWrap = els('referenceWrap');
+    const referenceImg = els('referenceImg');
+    const pieceSizeInput = document.getElementById('inputPieceSize'); // Updated ID
+    const pieceSizeSlider = document.getElementById('inputPieceSize'); // Updated ID
+    const refState = { zoom: 1, panX: 0, panY: 0 };
+    const refDivider = document.getElementById('refDivider');
+    const divider = document.getElementById('divider');
+    const refPanel = document.getElementById('referencePanel');
+    const right = document.querySelector('.right');
+    const state = {
+      cols: 8, rows: 8, cell: 512,
+      zoom: 1, panX: 0, panY: 0,
+      baseUrl: '',
+      pieces: [],
+      placements: {},
+      selectedCell: null,
+      indexId: null,
+      mapName: '',
+      tl: '',
+      folder: '',
+      solution: {}
+    };
+    const STORAGE_KEY = 'tileAssemblerProject_v1';
+    const DETAILS_KEY = "TilePuzzleDetails";
+    let manifest = {}
+    let dragging = false, startX = 0, startW = 0, activeDivider = null;
+    // how much to change per wheel step
+    const step = pieceSizeInput.step ? parseInt(pieceSizeInput.step, 20) : 10;
+
+    let thresholdValue = 500; // Renamed to avoid conflict with els('threshold')
+    let iterationsValue = 20000; // Renamed for clarity
+    let useGreedySolver = true;
+    let useGlobalSolver = false;
+
+    let refDragging = false, refLastX = 0, refLastY = 0;
+    let refTouches = [];
+    let isPanning = false, panStart = { x: 0, y: 0 }, panAt = { x: 0, y: 0 };
+    let touchDrag = {
+      active: false,
+      pieceId: null,
+      fromPos: null,
+      ghost: null
+    };
+    let lastTouchDist = null;
+    let pinchActive = false;
+    let lastCenter = null;
+    let longPressTimer = null;
+    let activeModal = null;
+    let imageCache = {};
+    let congratulationsStarted = false;
+    menuSavePng.addEventListener('click', () => {
+      exportPuzzleWithPlacement()
+    })
+
+
+    menuCreatePuzzle.addEventListener('click', () => {
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/*';
+      fileInput.style.display = 'none';
+
+      fileInput.onchange = async () => {
+        const file = fileInput.files[0];
+        if (!file) {
+          return;
+        }
+
+        const puzzleName = prompt('Please enter a name for your puzzle:');
+        if (!puzzleName) {
+          return; // User cancelled
+        }
+
+        const columnsStr = prompt('Please enter the desired number of columns (e.g., 8):');
+        if (!columnsStr) {
+          return; // User cancelled
+        }
+        const columns = parseInt(columnsStr, 10);
+        if (isNaN(columns) || columns <= 0) {
+          alert('Invalid number of columns. Please enter a positive number.');
+          return;
+        }
+
+        showModal('Uploading image...', false);
+
+        const formData = new FormData();
+        formData.append('name', puzzleName);
+        formData.append('image', file);
+        formData.append('columns', columns);
+
+        try {
+          const response = await fetch('/uploadPuzzle', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error('Upload failed');
+          }
+
+          showModal("Please wait<br>Processing new puzzle '" + puzzleName + "'", false);
+
+          const result = await response.json();
+          if (result.status === 'ok') {
+            hideModal();
+            await initMaps(); // Refresh the puzzle list
+          } else {
+            throw new Error('Processing failed');
+          }
+
+        } catch (error) {
+          console.error('Error uploading puzzle:', error);
+          showModal('An error has occurred<br>Please try again.', true);
+        }
+      };
+
+      fileInput.click();
+
+    })
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+    pieceSizeSlider.addEventListener("input", () => {
+      const size = pieceSizeSlider.value + "px";
+      piecesList.querySelectorAll(".piece").forEach(el => {
+        el.style.width = size;
+        el.style.height = size;
+      });
+    });
+
+    function updateModal(message) {
+      const box = els('modal');
+      const modal = els('modalBox');
+      if (box) {
+        box.style.animation = 'none'
+        modal.innerHTML = `<p>${message}</p>`;
+      }
+    }
+
+    function showModal(message, withButton = true) {
+      return new Promise(resolve => {
+        hideModal(); // close any existing modal
+
+        // overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+
+        // box
+        const box = document.createElement('div');
+        box.id = 'modal'
+        box.className = 'modal-box';
+        box.innerHTML = `<div id="modalBox"><p>${message}</p></div>`;
+
+        if (withButton) {
+          const btn = document.createElement('button');
+          btn.textContent = "OK";
+          btn.onclick = () => {
+            hideModal();
+            resolve();
+          };
+          box.appendChild(btn);
+        }
+
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        activeModal = { overlay, resolve };
+      });
+    }
+
+    function hideModal() {
+      if (activeModal) {
+        document.body.removeChild(activeModal.overlay);
+        activeModal.resolve?.(); // in case it’s waiting
+        activeModal = null;
+      }
+    }
+
+
+    // Functions
+
+    async function ensureStorageKeys() {
+      const images = await loadImageIndex(); // returns array of { folder, cols, rows }
+
+      for (const img of images) {
+        const mapKey = "TilePuzzle_" + img.folder;
+        if (!localStorage.getItem(mapKey)) {
+          // fetch manifest.json for this map
+          const manifestUrl = `/images/${img.folder}/manifest.json`;
+          const manifest = await fetch(manifestUrl).then(r => r.json());
+
+          // build pieces array
+          const pieces = manifest.pieces.map(p => ({
+            id: p.file,
+            name: p.file,
+            url: `/images/${img.folder}/pieces/${p.file}`,
+          }));
+
+          const defaultSave = {
+            cols: img.cols,
+            rows: img.rows,
+            cell: 512,
+            zoom: 1,
+            panX: 0,
+            panY: 0,
+            baseUrl: `/images/${img.folder}`,
+            pieces,
+            placements: {},
+          };
+
+          localStorage.setItem(mapKey, JSON.stringify(defaultSave));
+        }
+      }
+
+      // ensure global details exists
+      if (!localStorage.getItem(DETAILS_KEY)) {
+        localStorage.setItem(
+          DETAILS_KEY,
+          JSON.stringify({ currentMap: images[0]?.folder || null })
+        );
+      }
+    }
+
+
+
+
+
+    async function saveLocal() {
+      const mapKey = "TilePuzzle_" + state.folder;
+      const toSave = {
+        cols: state.cols,
+        rows: state.rows,
+        cell: state.cell,
+        zoom: state.zoom,
+        panX: state.panX,
+        panY: state.panY,
+        baseUrl: state.baseUrl,
+        pieces: state.pieces.map(p => ({
+          id: p.id,
+          name: p.name,
+          filename: p.filename,
+          date: p.date,
+          url: relativeOrUrl(p.url),
+        })),
+        placements: state.placements,
+      };
+      localStorage.setItem(mapKey, JSON.stringify(toSave));
+
+      const details = { currentMap: state.folder };
+      localStorage.setItem(DETAILS_KEY, JSON.stringify(details));
+    }
+
+    function loadLocal(folder) {
+      const mapKey = "TilePuzzle_" + folder;
+      const saved = localStorage.getItem(mapKey);
+      return saved ? JSON.parse(saved) : null;
+    }
+
+    function loadDetails() {
+      const saved = localStorage.getItem(DETAILS_KEY);
+      return saved ? JSON.parse(saved) : { currentMap: null };
+    }
+
+
+
+
+
+
+    function applyRefTransform() {
+      const transform = `translate(${refState.panX}px,${refState.panY}px) scale(${refState.zoom})`;
+      els('referenceImg').style.transform = transform;
+    }
+
+
+
+
+
+    function absolutize(url) {
+      try { new URL(url); return url; } catch { }
+      return (state.baseUrl || '') + url;
+    }
+
+    function relativeOrUrl(url) {
+      if (state.baseUrl && url.startsWith(state.baseUrl)) return url.slice(state.baseUrl.length);
+      return url;
+    }
+
+    async function updateCount() {
+      const placed = Object.values(state.placements);
+      const left = state.pieces.filter(p => !placed.includes(p.id)).length;
+      piecesCount.textContent = `${left} pieces left`;
+      if (left == 0) {
+        piecesList.style.display = "none";
+        right.style.display = "none";
+        await doToggleReference(false)
+        await resizeAndCentre();
+
+        // let browser repaint before blocking alert
+        await new Promise(requestAnimationFrame);
+
+        if (checkSolution()) {
+          if (congratulationsStarted) return; // Prevent re-triggering
+          congratulationsStarted = true;
+          await doToggleReference(false)
+          await resizeBoard()
+          startFireworks(); // Start random fireworks
+          showModal("🎉 Congratulations<br>you have solved this puzzle!", false);
+          await congratulationsAnimation(); // Start letter fireworks immediately
+          hideModal()
+          setTimeout(() => {
+            if (fw_intervalId) {
+              clearInterval(fw_intervalId);
+              fw_intervalId = null;
+            }
+          }, 10000);
+
+          // Stop all animations after a longer period (30s) to allow completion
+          setTimeout(reallyStopFireworks, 30000);
+        } else {
+          showModal("⚠️ Check again - This is not the solution", true);
+        }
+      } else {
+        piecesList.style.display = "grid"
+        right.style.display = "flex";
+      }
+    }
+
+
+    function checkSolution() {
+      const solution = manifest.solution;
+      if (!solution) {
+        console.warn("No solution provided");
+        return false;
+      }
+
+      for (const [pos, correctId] of Object.entries(solution)) {
+        const placedId = state.placements[pos];
+        if (placedId !== correctId) {
+          return false; // mismatch
+        }
+      }
+
+      // also ensure no extra placements beyond solution
+      for (const pos of Object.keys(state.placements)) {
+        if (!(pos in solution)) {
+          return false;
+        }
+      }
+
+      return true; // all positions match
+    }
+
+    function showHints() {
+      if (!manifest.solution) {
+        showModal("No solution available for this puzzle.", true);
+        return;
+      }
+
+      const solutionLookup = Object.fromEntries(
+        Object.entries(manifest.solution).map(([pos, pid]) => [pid, pos])
+      );
+
+      for (const [currentPos, placedPid] of Object.entries(state.placements)) {
+        const correctPos = solutionLookup[placedPid];
+
+        if (correctPos && currentPos !== correctPos) {
+          const tileElement = board.querySelector(`.tile-container[data-pos="${currentPos}"]`);
+          if (tileElement) {
+            tileElement.style.outline = '5px solid var(--danger)';
+            tileElement.style.outlineOffset = '-5px';
+
+            setTimeout(() => {
+              if (tileElement) {
+                tileElement.style.outline = '';
+              }
+            }, 5000);
+          }
+        }
+      }
+    }
+
+    function drawGridCells() {
+      const gridLayer = els('gridLayer');
+      gridLayer.innerHTML = '';
+
+      const wCss = state.cols * state.cell;
+      const hCss = state.rows * state.cell;
+
+      for (let r = 0; r < state.rows; r++) {
+        for (let c = 0; c < state.cols; c++) {
+          const pos = `${r},${c}`;
+          if (state.placements[pos]) {
+            continue; // Skip filled cells
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.className = 'grid-cell';
+          canvas.width = state.cell;
+          canvas.height = state.cell;
+          canvas.style.left = (c * state.cell) + 'px';
+          canvas.style.top = (r * state.cell) + 'px';
+
+          const ctx = canvas.getContext('2d');
+          ctx.strokeStyle = '#8F8';
+          ctx.lineWidth = 20;
+          const inset = ctx.lineWidth / 2;
+          ctx.strokeRect(inset, inset, state.cell - ctx.lineWidth, state.cell - ctx.lineWidth);
+
+          gridLayer.appendChild(canvas);
+        }
+      }
+
+      gridLayer.style.width = wCss + 'px';
+      gridLayer.style.height = hCss + 'px';
+    }
+
+    function loadReference() {
+      if (!state.indexId) return;
+      const refPiece = state.pieces.find(p => p.id === state.indexId);
+      if (refPiece) {
+        referenceImg.src = refPiece.filename;
+        referenceImg.title = "Reference image"
+      }
+    }
+
+    async function loadImageIndex() {
+      try {
+        const res = await fetch('/images/imageIndex.json');
+        if (!res.ok) throw new Error("Failed to fetch imageIndex.json");
+        const data = await res.json();
+        return data.images;
+      } catch (err) {
+        console.error("Error loading imageIndex.json", err);
+        return [];
+      }
+    }
+
+    async function renderPieces() {
+      const arr = [...state.pieces];
+      piecesList.innerHTML = '';
+
+      for (const p of arr) {
+        if (Object.values(state.placements).includes(p.id)) continue;
+        const card = document.createElement('div');
+        card.className = 'piece';
+        card.draggable = true;
+        card.dataset.id = p.id;
+        if (p.name.toLowerCase() === "index.jpg") {
+          state.indexId = p.id; // remember the reference piece
+        }
+        card.addEventListener('dragstart', e => {
+          e.dataTransfer.setData('text/pieceId', p.id);
+          e.dataTransfer.effectAllowed = 'copyMove';
+        });
+        const cachedCanvas = imageCache[p.id];
+        const pieceSize = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--piece-size'));
+        const destCanvas = document.createElement('canvas');
+        destCanvas.width = pieceSize;
+        destCanvas.height = pieceSize;
+        const ctx = destCanvas.getContext('2d');
+
+        const scale = Math.min(pieceSize / cachedCanvas.width, pieceSize / cachedCanvas.height);
+        const newWidth = cachedCanvas.width * scale;
+        const newHeight = cachedCanvas.height * scale;
+        const destX = (pieceSize - newWidth) / 2;
+        const destY = (pieceSize - newHeight) / 2;
+        ctx.drawImage(cachedCanvas, destX, destY, newWidth, newHeight);
+        destCanvas.alt = p.name;
+        card.appendChild(destCanvas);
+        piecesList.appendChild(card);
+      }
+      await updateCount()
+
+      loadReference();
+    }
+
+
+
+    async function resizeBoard() {
+      const w = state.cols * state.cell;
+      const h = state.rows * state.cell;
+      drawGridCells();
+      board.style.width = w + 'px';
+      board.style.height = h + 'px';
+      layoutPlacedTiles();
+      applyTransform();
+    }
+
+    function applyTransform() {
+      const transform = `translate(${state.panX}px,${state.panY}px) scale(${state.zoom})`;
+      els('boardViewport').style.transform = transform;
+    }
+
+    function setZoom(next, center) {
+      next = Math.max(0.01, Math.min(8, next));
+      const prev = state.zoom;
+      if (!center) { center = { x: boardWrap.clientWidth / 2, y: boardWrap.clientHeight / 2 }; }
+      // Zoom to cursor: adjust pan so the point under cursor remains stationary
+      const worldX = (center.x - state.panX) / prev;
+      const worldY = (center.y - state.panY) / prev;
+      state.zoom = next;
+      state.panX = center.x - worldX * state.zoom;
+      state.panY = center.y - worldY * state.zoom;
+      applyTransform();
+      saveLocal();
+    }
+
+    function worldFromClient(clientX, clientY) {
+      const rect = boardWrap.getBoundingClientRect();
+      const x = (clientX - rect.left - state.panX) / state.zoom;
+      const y = (clientY - rect.top - state.panY) / state.zoom;
+      return { x, y };
+    }
+
+    function nearestCell(x, y) {
+      const c = Math.round(x / state.cell - 0.5);
+      const r = Math.round(y / state.cell - 0.5);
+      return { c: clamp(c, 0, state.cols - 1), r: clamp(r, 0, state.rows - 1) };
+    }
+
+    function key(rc) { return `${rc.r},${rc.c}`; }
+
+    function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+
+    function paintSingleTile(pos, pid) {
+      const piece = state.pieces.find(p => p.id === pid);
+      if (!piece) return;
+
+      const [r, c] = pos.split(',').map(Number);
+
+      const existingTile = board.querySelector(`.tile-container[data-pos="${pos}"]`);
+      if (existingTile) {
+        existingTile.remove();
+      }
+
+      const tileContainer = document.createElement('div');
+      tileContainer.className = 'tile-container';
+      tileContainer.style.position = 'absolute';
+      tileContainer.style.left = (c * state.cell) + 'px';
+      tileContainer.style.top = (r * state.cell) + 'px';
+      tileContainer.style.width = state.cell + 'px';
+      tileContainer.style.height = state.cell + 'px';
+      tileContainer.dataset.pos = pos;
+      tileContainer.title = `${piece.name} @ ${pos}`;
+      tileContainer.draggable = true;
+
+      tileContainer.addEventListener('dragstart', e => {
+        e.dataTransfer.setData('text/pieceId', piece.id);
+        e.dataTransfer.setData('text/fromPos', pos);
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      tileContainer.addEventListener('click', () => {
+        state.selectedCell = pos;
+        highlightSelected();
+      });
+      tileContainer.addEventListener('dblclick', () => {
+        returnPiece(pos);
+      });
+
+      const cachedCanvas = imageCache[pid];
+      const newCanvas = document.createElement('canvas');
+      newCanvas.width = state.cell;
+      newCanvas.height = state.cell;
+      newCanvas.getContext('2d').drawImage(cachedCanvas, 0, 0);
+      newCanvas.className = 'tile-image';
+      newCanvas.style.pointerEvents = 'none';
+
+      tileContainer.appendChild(newCanvas);
+      board.appendChild(tileContainer);
+    }
+
+
+    async function layoutPlacedTiles() {
+      board.innerHTML = ''; // Clear the board
+      for (const pos in state.placements) {
+        paintSingleTile(pos, state.placements[pos]);
+      }
+      highlightSelected();
+    }
+
+    function highlightSelected() {
+      if (state.selectedCell) {
+        const [r, c] = state.selectedCell.split(',').map(Number);
+        dropHint.hidden = false;
+        dropHint.style.left = (c * state.cell) + 'px';
+        dropHint.style.top = (r * state.cell) + 'px';
+        dropHint.style.width = state.cell + 'px';
+        dropHint.style.height = state.cell + 'px';
+      } else {
+        dropHint.hidden = true;
+      }
+    }
+
+
+    // Pan (right/middle/space+drag)
+
+    function startPan(e) { isPanning = true; panStart = { x: e.clientX, y: e.clientY }; panAt = { x: state.panX, y: state.panY }; boardWrap.style.cursor = 'grabbing'; }
+
+    function movePan(e) { if (!isPanning) return; state.panX = panAt.x + (e.clientX - panStart.x); state.panY = panAt.y + (e.clientY - panStart.y); applyTransform(); }
+
+    function endPan() { isPanning = false; boardWrap.style.cursor = 'default'; saveLocal(); }
+
+
+
+
+
+
+
+    // Load pieces: files or URLs
+
+
+    function autoFitBoard() {
+      const w = state.cols * state.cell;
+      const h = state.rows * state.cell;
+      const vw = boardWrap.clientWidth;
+      const vh = boardWrap.clientHeight;
+
+      const fitScale = Math.min(vw / w, vh / h) * 0.9;
+      state.zoom = Math.max(0.01, Math.min(8, fitScale));
+
+      state.panX = (vw - w * state.zoom) / 2;
+      state.panY = (vh - h * state.zoom) / 2;
+
+      applyTransform();
+    }
+
+
+
+
+    // Resizable split
+    (function () {
+      const divider = document.getElementById('divider');
+      const left = document.getElementById('left');
+      let dragging = false, startX = 0, startW = 0;
+      divider.addEventListener('mousedown', e => { dragging = true; startX = e.clientX; startW = left.getBoundingClientRect().width; document.body.style.cursor = 'col-resize'; });
+      window.addEventListener('mousemove', e => { if (!dragging) return; const dx = e.clientX - startX; left.style.flex = '0 0 auto'; left.style.width = (startW + dx) + 'px'; });
+      window.addEventListener('mouseup', () => { if (dragging) { dragging = false; document.body.style.cursor = 'default'; } });
+    })();
+
+    async function initMaps() {
+      const images = await loadImageIndex();
+      const puzzleDropdown = els('puzzleDropdown');
+      puzzleDropdown.innerHTML = '';
+
+      images.forEach((img, idx) => {
+        // Populate new puzzleDropdown
+        const listItem = document.createElement('li');
+        listItem.textContent = img.name;
+        listItem.dataset.index = idx;
+        listItem.addEventListener('click', async () => {
+          await loadMap(img);
+        });
+        puzzleDropdown.appendChild(listItem);
+      });
+
+      // Auto-load first map
+      if (images.length) {
+        const details = loadDetails();
+        let folder = details.currentMap;
+
+        // fallback to first map if nothing saved or invalid
+        if (!folder || !images.find(img => img.folder === folder)) {
+          folder = images[0].folder;
+        }
+
+        // load that map
+        await loadMap(images[images.findIndex(img => img.folder === folder)]);
+      }
+    }
+
+    async function loadMap(map) {
+      showModal("Please wait<br>Loading the " + map.name + " puzzle pieces...", false)
+      congratulationsStarted = false;
+      doToggleReference(true);
+      const img = els('referenceImg');
+      img.src = '';
+      console.log("map:", map)
+      state.pieces = []
+      let s = loadLocal(map.folder)
+      state.mapName = map.name;
+      state.rows = map.rows;
+      state.cols = map.cols;
+      state.tl = map.tl;
+      state.folder = map.folder;
+      if (s) {
+        state.placements = s.placements
+      } else {
+        state.placements = {}
+      }
+      state.solution = map.solution
+      //      saveLocal()
+      resizeBoard();
+      autoFitBoard();
+
+      // clear old
+      state.pieces = [];
+      els('piecesList').innerHTML = '';
+
+      const baseUrl = `/images/${state.folder}/`;
+      // fetch manifest
+      try {
+        const res = await fetch(baseUrl + 'manifest.json');
+        if (!res.ok) throw new Error("Failed to load manifest");
+        manifest = await res.json();
+
+        manifest.pieces.forEach(p => {
+          const id = p.file;
+          state.pieces.push({
+            id,
+            name: p.file,
+            url: baseUrl + "pieces/" + p.file,
+            row: p.row,
+            col: p.col
+          });
+        });
+        // Pre-load all images, draw them to canvases, and cache the canvases.
+        imageCache = {}; // Clear cache for new puzzle
+        const loadPromises = [];
+        for (const piece of state.pieces) {
+          const p = new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.naturalWidth;
+              canvas.height = img.naturalHeight;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0);
+              imageCache[piece.id] = canvas; // Cache the canvas
+              resolve();
+            };
+            img.onerror = reject;
+            img.src = piece.url;
+          });
+          loadPromises.push(p);
+        }
+        await Promise.all(loadPromises);
+        shuffleArray(state.pieces);
+        await renderPieces();
+
+
+      } catch (err) {
+        console.error("Error loading manifest", err);
+      }
+      // load reference image
+      // load reference image and wait until it's ready
+      updateModal("Please wait<br>Loading the " + map.name + " reference image...")
+
+      img.src = baseUrl + 'index.jpg';
+      img.title = "Reference image"
+
+      state.indexId = img.src;
+
+      await new Promise(resolve => {
+        if (img.complete) resolve();
+        else img.onload = resolve;
+      });
+
+      const wrap = els('referenceWrap');
+      const wrapW = wrap.clientWidth;
+      const wrapH = wrap.clientHeight;
+      const imgW = img.naturalWidth;
+      const imgH = img.naturalHeight;
+
+      // compute best-fit zoom
+      const scaleX = wrapW / imgW;
+      const scaleY = wrapH / imgH;
+      const scale = Math.min(scaleX, scaleY);
+
+      // center the image
+      refState.zoom = scale;
+      refState.panX = (wrapW - imgW * scale) / 2;
+      refState.panY = (wrapH - imgH * scale) / 2;
+      console.log("refState: ", refState);
+      applyRefTransform();
+
+
+      await layoutPlacedTiles()
+      await updateCount()
+      hideModal();
+      saveLocal()
+      console.log("state: ", state)
+    }
+
+
+    // Init
+    async function init() {
+      await ensureStorageKeys();
+      await initMaps();
+      setZoom(state.zoom || 1);
+      status.textContent = 'Drop a tile onto the grid or drag with middle/right mouse to pan. Wheel to zoom.';
+      updateToggleMenu();
+
+      // New: Initialize Solver menu display
+      updateSolverMenuDisplay();
+
+      // Handle menu clicks for dropdowns
+      document.querySelectorAll('.menu-item').forEach(menuItem => {
+        // Check if the menuItem is a direct child of menu-bar to avoid nested event listeners
+        if (menuItem.parentElement.classList.contains('menu-bar')) {
+          menuItem.addEventListener('click', function (e) {
+            const isShown = this.classList.contains('show-dropdown');
+
+            // Close all menus
+            document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('show-dropdown'));
+
+            // If it was not shown, show it
+            if (!isShown) {
+              this.classList.add('show-dropdown');
+            }
+            e.stopPropagation();
+          });
+        }
+      });
+
+      // Close all menus if clicked outside
+      document.addEventListener('click', function (e) {
+        if (!e.target.closest('.menu-item')) {
+          document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('show-dropdown'));
+        }
+      });
+
+      // Prevent closing for exceptions
+      document.querySelectorAll('#menuThreshold, #menuIterations, #menuPieceSize, .has-submenu').forEach(exception => {
+        exception.addEventListener('click', function (e) {
+          e.stopPropagation();
+        });
+      });
+    }
+
+    function updateSolverMenuDisplay() {
+      // Update Threshold input value
+      els('inputThreshold').value = thresholdValue;
+
+      // Update Iterations input value
+      els('inputIterations').value = iterationsValue;
+
+      // Update Use Greedy Solver tick
+      els('menuUseGreedySolver').innerHTML = `Use Greedy Solver ${useGreedySolver ? '&#10003;' : ''}`;
+
+      // Update Use Global Search tick
+      els('menuUseGlobalSearch').innerHTML = `Use Global Search ${useGlobalSolver ? '&#10003;' : ''}`;
+    }
+
+    // --- Fireworks ---
+
+    const fw_canvas = document.getElementById('fireworksCanvas');
+    const fw_ctx = fw_canvas.getContext('2d');
+    let letterSize = 120;
+    let letterMovement = 8;
+    let letterBomb = 8;
+    let letterBombSpeed = 13;
+
+    function getPointsForChar(char, size) {
+      const points = [];
+      const offscreenCanvas = document.createElement('canvas');
+      const offscreenCtx = offscreenCanvas.getContext('2d');
+      offscreenCanvas.width = size;
+      offscreenCanvas.height = size;
+      offscreenCtx.font = `bold ${size}px Arial`;
+      offscreenCtx.textAlign = 'center';
+      offscreenCtx.textBaseline = 'middle';
+      offscreenCtx.strokeStyle = '#fff';
+      offscreenCtx.lineWidth = 2;
+      offscreenCtx.strokeText(char, size / 2, size / 2);
+
+      const imageData = offscreenCtx.getImageData(0, 0, size, size);
+      const step = 2; // sample every 2 pixels
+
+      for (let y = 0; y < imageData.height; y += step) {
+        for (let x = 0; x < imageData.width; x += step) {
+          const alpha = imageData.data[(y * imageData.width + x) * 4 + 3];
+          if (alpha > 0) {
+            points.push({ x: x - size / 2, y: y - size / 2 });
+          }
+        }
+      }
+      return points;
+    }
+    let fw_fireworks = [];
+    let fw_particles = [];
+    let fw_animationFrameId = null;
+    let fw_intervalId = null;
+
+    class fw_Particle {
+      constructor(x, y, color, velocity) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.velocity = velocity;
+        this.alpha = 1;
+        this.friction = 0.99;
+        this.gravity = 0.05;
+        this.radius = 2;
+      }
+
+      draw() {
+        fw_ctx.save();
+        fw_ctx.globalAlpha = this.alpha;
+        fw_ctx.beginPath();
+        fw_ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
+        fw_ctx.fillStyle = this.color;
+        fw_ctx.fill();
+        fw_ctx.restore();
+      }
+
+      updatePosition() {
+        this.velocity.x *= this.friction;
+        this.velocity.y *= this.friction;
+        this.velocity.y += this.gravity;
+        this.x += this.velocity.x;
+        this.y += this.velocity.y;
+      }
+
+      updateAlpha() {
+        this.alpha -= 0.008; // Fade out
+      }
+
+      update() {
+        this.updatePosition();
+        this.updateAlpha();
+      }
+    }
+
+    class fw_CongratsParticle extends fw_Particle {
+      constructor(x, y, color, velocity) {
+        super(x, y, color, velocity);
+        this.alpha = 1.5; // brighter
+        this.life = 8; // seconds
+        this.fadeStart = 5;
+      }
+
+      updateAlpha() {
+        this.life -= 1 / 60; // assuming 60fps
+        if (this.life <= 0) {
+          this.alpha = 0;
+        } else if (this.life < this.fadeStart) {
+          this.alpha = 1.5 * (this.life / this.fadeStart);
+        } else {
+          this.alpha = 1.5;
+        }
+      }
+    }
+
+    class fw_LetterParticle extends fw_Particle {
+      constructor(x, y, color) {
+        super(x, y, color, { x: 0, y: 0 });
+        this.originalX = x;
+        this.originalY = y;
+        this.gravity = 0;
+        this.friction = 1;
+        this.colorCycle = Math.random() * 360;
+      }
+
+      update() {
+        this.x = this.originalX + (Math.random() - 0.5) * letterMovement;
+        this.y = this.originalY + (Math.random() - 0.5) * letterMovement;
+
+        this.colorCycle += 5;
+        this.color = `hsl(${this.colorCycle % 360}, 100%, 70%)`;
+      }
+    }
+
+    class fw_Firework {
+      constructor(x, y, targetX, targetY, color) {
+        this.x = x;
+        this.y = y;
+        this.startX = x;
+        this.startY = y;
+        this.targetX = targetX;
+        this.targetY = targetY;
+        this.color = color;
+        this.speed = 5;
+        this.angle = Math.atan2(targetY - y, targetX - x);
+        this.velocity = {
+          x: Math.cos(this.angle) * this.speed,
+          y: Math.sin(this.angle) * this.speed
+        };
+        this.distanceToTarget = Math.hypot(targetX - x, targetY - y);
+        this.distanceTraveled = 0;
+        this.radius = 2;
+      }
+
+      draw() {
+        fw_ctx.beginPath();
+        fw_ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2, false);
+        fw_ctx.fillStyle = this.color;
+        fw_ctx.fill();
+      }
+
+      update() {
+        this.x += this.velocity.x;
+        this.y += this.velocity.y;
+        this.distanceTraveled = Math.hypot(this.x - this.startX, this.y - this.startY);
+
+        if (this.distanceTraveled >= this.distanceToTarget) {
+          this.explode();
+          return false;
+        }
+        this.draw();
+        return true;
+      }
+
+      explode() {
+        const particleCount = 100;
+        for (let i = 0; i < particleCount; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = Math.random() * 5 + 1;
+          const velocity = {
+            x: Math.cos(angle) * speed,
+            y: Math.sin(angle) * speed
+          };
+          fw_particles.push(new fw_Particle(this.x, this.y, this.color, velocity));
+        }
+      }
+    }
+
+    class fw_LetterBomb extends fw_Firework {
+      constructor(x, y, targetX, targetY, color, char, onExplodeCallback) {
+        super(x, y, targetX, targetY, color);
+        this.char = char;
+        this.radius = letterBomb;
+        this.onExplode = onExplodeCallback;
+        this.speed = letterBombSpeed;
+        // Recalculate velocity based on the new speed
+        this.velocity = {
+          x: Math.cos(this.angle) * this.speed,
+          y: Math.sin(this.angle) * this.speed
+        };
+      }
+
+      explode() {
+        const points = getPointsForChar(this.char, letterSize);
+        points.forEach(p => {
+          const particle = new fw_LetterParticle(this.x + p.x, this.y + p.y, this.color);
+          fw_particles.push(particle);
+        });
+        if (this.onExplode) {
+          this.onExplode();
+        }
+      }
+    }
+
+
+
+
+    function fw_animate() {
+      fw_animationFrameId = requestAnimationFrame(fw_animate);
+      fw_ctx.clearRect(0, 0, fw_canvas.width, fw_canvas.height);
+
+      for (let i = fw_fireworks.length - 1; i >= 0; i--) {
+        if (!fw_fireworks[i].update()) {
+          fw_fireworks.splice(i, 1);
+        }
+      }
+
+      for (let i = fw_particles.length - 1; i >= 0; i--) {
+        fw_particles[i].update();
+        if (fw_particles[i].alpha <= 0) {
+          fw_particles.splice(i, 1);
+        } else {
+          fw_particles[i].draw();
+        }
+      }
+    }
+
+    function fw_getRandomColor() {
+      const colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFFFFF'];
+      return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    function startFireworks() {
+      fw_canvas.style.display = 'block';
+      fw_canvas.width = window.innerWidth;
+      fw_canvas.height = window.innerHeight;
+
+      fw_intervalId = setInterval(() => {
+        const startX = fw_canvas.width * Math.random();
+        const startY = fw_canvas.height;
+        const targetX = startX;
+        const targetY = fw_canvas.height * Math.random() * 0.5;
+        const color = fw_getRandomColor();
+        fw_fireworks.push(new fw_Firework(startX, startY, targetX, targetY, color));
+      }, 500);
+
+      if (!fw_animationFrameId) {
+        fw_animate();
+      }
+    }
+
+    class fw_DriftingParticle extends fw_Particle {
+      constructor(x, y, color) {
+        const velocity = {
+          x: (Math.random() - 0.5) * 2,
+          y: Math.random() * 2 + 1
+        };
+        super(x, y, color, velocity);
+        this.friction = 0.98;
+        this.gravity = 0.05;
+        this.fadeSpeed = Math.random() * 0.01 + 0.005;
+      }
+
+      updateAlpha() {
+        this.alpha -= this.fadeSpeed;
+      }
+    }
+
+    function explodeCongratulations() {
+      const letterParticles = fw_particles.filter(p => p instanceof fw_LetterParticle);
+      const otherParticles = fw_particles.filter(p => !(p instanceof fw_LetterParticle));
+
+      const driftingParticles = letterParticles.map(p => new fw_DriftingParticle(p.x, p.y, p.color));
+
+      fw_particles = otherParticles.concat(driftingParticles);
+    }
+
+    async function congratulationsAnimation() {
+      return new Promise(resolve => {
+        const text = "CONGRATULATIONS";
+        const arcRadius = fw_canvas.width / 3;
+        const totalAngle = Math.PI / 1.5;
+        const startAngle = -Math.PI / 2 - totalAngle / 2;
+        const angleStep = totalAngle / (text.length - 1);
+        const centerX = fw_canvas.width / 2;
+        const centerY = fw_canvas.height / 2 + arcRadius / 2;
+
+        const startX = fw_canvas.width / 2;
+        const startY = fw_canvas.height;
+
+        function fireLetterBomb(index) {
+          if (index >= text.length) {
+            setTimeout(() => {
+              explodeCongratulations();
+              resolve(); // Resolve the promise after the animation chain completes
+            }, 2000);
+            return;
+          }
+
+          const char = text[index];
+          const angle = startAngle + index * angleStep;
+          const letterX = centerX + Math.cos(angle) * arcRadius;
+          const letterY = centerY + Math.sin(angle) * arcRadius;
+          const color = fw_getRandomColor();
+
+          const onExplode = () => fireLetterBomb(index + 1);
+
+          const bomb = new fw_LetterBomb(startX, startY, letterX, letterY, color, char, onExplode);
+          fw_fireworks.push(bomb);
+        }
+
+        fireLetterBomb(0);
+      });
+    }
+
+    function reallyStopFireworks() {
+      if (fw_animationFrameId) {
+        cancelAnimationFrame(fw_animationFrameId);
+        fw_animationFrameId = null;
+      }
+      fw_ctx.clearRect(0, 0, fw_canvas.width, fw_canvas.height);
+      fw_canvas.style.display = 'none';
+      fw_fireworks = [];
+      fw_particles = [];
+    }
+
+    // --- Touch drag & drop support ---
+
+    function createGhost(imgSrc, x, y) {
+      const ghost = document.createElement('img');
+      ghost.src = imgSrc;
+      ghost.style.position = 'fixed';
+      ghost.style.left = x + 'px';
+      ghost.style.top = y + 'px';
+      ghost.style.width = '80px';
+      ghost.style.height = '80px';
+      ghost.style.opacity = '0.7';
+      ghost.style.pointerEvents = 'none';
+      ghost.style.zIndex = '9999';
+      document.body.appendChild(ghost);
+      return ghost;
+    }
+
+    function startTouchDrag(pieceId, fromPos, imgSrc, x, y) {
+      touchDrag.active = true;
+      touchDrag.pieceId = pieceId;
+      touchDrag.fromPos = fromPos || null;
+      touchDrag.ghost = createGhost(imgSrc, x, y);
+    }
+
+    function moveTouchDrag(x, y) {
+      if (!touchDrag.active || !touchDrag.ghost) return;
+      touchDrag.ghost.style.left = (x - 40) + 'px';
+      touchDrag.ghost.style.top = (y - 40) + 'px';
+
+      const w = worldFromClient(x, y);
+      const rc = nearestCell(w.x, w.y);
+
+      dropHint.hidden = false;
+      dropHint.style.left = (rc.c * (state.cell)) + 'px';
+      dropHint.style.top = (rc.r * (state.cell)) + 'px';
+      dropHint.style.width = state.cell + 'px';
+      dropHint.style.height = state.cell + 'px';
+      dropHint.style.transformOrigin = '0 0';
+    }
+
+    function endTouchDrag(x, y) {
+      if (!touchDrag.active) return;
+      const pid = touchDrag.pieceId;
+      const fromPos = touchDrag.fromPos;
+      if (pid) {
+        const w = worldFromClient(x, y);
+        const rc = nearestCell(w.x, w.y);
+        const k = `${rc.r},${rc.c}`;
+        const replaced = state.placements[k];
+        state.placements[k] = pid;
+        if (fromPos) delete state.placements[fromPos];
+        // Manually update the board for performance
+        paintSingleTile(k, pid); // Draw the new tile
+        if (fromPos) {
+          const oldTile = board.querySelector(`.tile-container[data-pos="${fromPos}"]`);
+          if (oldTile) oldTile.remove();
+        }
+        renderPieces(); // Update the list of available pieces
+        saveLocal();
+
+        if (replaced && replaced !== pid) {
+          status.textContent = `replaced tile at ${k}`;
+        } else {
+          status.textContent = `placement at ${k}`;
+        }
+      }
+      if (touchDrag.ghost) touchDrag.ghost.remove();
+      touchDrag = { active: false, pieceId: null, fromPos: null, ghost: null };
+      dropHint.hidden = true;
+    }
+
+    function getTouchDistance(touches) {
+      if (touches.length < 2) return null;
+      let dx = touches[0].clientX - touches[1].clientX;
+      let dy = touches[0].clientY - touches[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    // Solve
+
+    async function solveTilePuzzle() {
+      console.log("imageCache:", imageCache)
+      if (useGreedySolver) {
+        await solveGreedySolver()
+      }
+      if (useGlobalSolver) {
+        await solveGlobalSolver()
+      }
+      if (!useGreedySolver && !useGlobalSolver) {
+        showModal("No solvers are enabled", true);
+      }
+    }
+
+    async function runGreedyPass(threshold) {
+      const topLeftId = state.tl;
+      const tiles = imageCache;
+
+      function getEdges(image) {
+        const canvas = document.createElement("canvas");
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(image, 0, 0);
+        const data = ctx.getImageData(0, 0, image.width, image.height).data;
+        function row(y, step = 1) {
+          const r = [];
+          for (let x = 0; x < image.width; x += step) {
+            const idx = (y * image.width + x) * 4;
+            r.push(data[idx], data[idx + 1], data[idx + 2]);
+          }
+          return r;
+        }
+        function col(x, step = 1) {
+          const c = [];
+          for (let y = 0; y < image.height; y += step) {
+            const idx = (y * image.width + x) * 4;
+            c.push(data[idx], data[idx + 1], data[idx + 2]);
+          }
+          return c;
+        }
+        return { top: row(0), bottom: row(image.height - 1), left: col(0), right: col(image.width - 1) };
+      }
+
+      const edges = {};
+      for (const [id, img] of Object.entries(tiles)) {
+        edges[id] = getEdges(img);
+      }
+
+      function edgeDiff(a, b) {
+        let diff = 0;
+        for (let i = 0; i < a.length; i++) {
+          const d = a[i] - b[i];
+          diff += d * d;
+        }
+        return diff / a.length;
+      }
+
+      if (!state.placements) state.placements = {};
+      const placedIds = new Set(Object.values(state.placements));
+      const remaining = new Set(Object.keys(tiles));
+      for (const id of placedIds) remaining.delete(id);
+
+      if (!state.placements["0,0"] && topLeftId) {
+        state.placements["0,0"] = topLeftId;
+        remaining.delete(topLeftId);
+      }
+
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (let r = 0; r < state.rows; r++) {
+          for (let c = 0; c < state.cols; c++) {
+            const pos = `${r},${c}`;
+            if (state.placements[pos]) continue;
+
+            let bestMatch = null;
+            let bestDiff = Infinity;
+            for (const candidate of remaining) {
+              const candEdges = edges[candidate];
+              if (!candEdges) continue;
+              let totalDiff = 0;
+              let comparisons = 0;
+              const leftTile = state.placements[`${r},${c - 1}`];
+              const topTile = state.placements[`${r - 1},${c}`];
+              const rightTile = state.placements[`${r},${c + 1}`];
+              const bottomTile = state.placements[`${r + 1},${c}`];
+
+              if (leftTile) { totalDiff += edgeDiff(edges[leftTile].right, candEdges.left); comparisons++; }
+              if (topTile) { totalDiff += edgeDiff(edges[topTile].bottom, candEdges.top); comparisons++; }
+              if (rightTile) { totalDiff += edgeDiff(edges[rightTile].left, candEdges.right); comparisons++; }
+              if (bottomTile) { totalDiff += edgeDiff(edges[bottomTile].top, candEdges.bottom); comparisons++; }
+
+              if (comparisons > 0) {
+                const avgDiff = totalDiff / comparisons;
+                if (avgDiff < bestDiff) {
+                  bestDiff = avgDiff;
+                  bestMatch = candidate;
+                }
+              }
+            }
+
+            if (bestMatch && bestDiff < threshold) {
+              state.placements[pos] = bestMatch;
+              remaining.delete(bestMatch);
+              paintSingleTile(pos, bestMatch);
+              changed = true;
+              await new Promise((resolve) => setTimeout(resolve, 0));
+            }
+          }
+        }
+      }
+    }
+
+    async function solveGreedySolver() {
+      showModal("Please wait<br>Running 'greedy search'", false);
+      console.log("Solver started");
+      await runGreedyPass(thresholdValue);
+      layoutPlacedTiles();
+      renderPieces();
+      saveLocal()
+      console.log("Solved (resumed):", state.placements);
+      hideModal()
+    }
+
+    async function solveProgressiveGreedySearch() {
+      let remainingPieces = 0
+      let currentThreshold = 10;
+      showModal("Please wait<br>Running 'Progressive Greedy Search' at a threshold of " + currentThreshold, false);
+      while (currentThreshold <= 3000) {
+        updateModal("Please wait<br>Running 'Progressive Greedy Search' at a threshold of " + currentThreshold);
+        remainingPieces = state.pieces.filter(p => !Object.values(state.placements).includes(p.id)).length;
+        if (remainingPieces === 0) {
+          break;
+        }
+        status.textContent = `Running greedy pass with threshold: ${currentThreshold}...`;
+        await runGreedyPass(currentThreshold);
+        currentThreshold += 50;
+      }
+      if (remainingPieces === 0) {
+        updateModal("Progressive search finished - all pieces filled");
+      } else {
+        updateModal("Progressive search finished - some pieces not found");
+      }
+      setTimeout(() => {
+        hideModal();
+      }, 3000)
+      layoutPlacedTiles();
+      renderPieces();
+      saveLocal();
+      status.textContent = "Progressive search finished.";
+    }
+
+
+
+
+    async function solveGlobalSolver() {
+
+      // --- Use pre-loaded images from cache ---
+      showModal("Please wait<br>Starting 'Global Solver'", false);
+      const tiles = imageCache;
+      iterations = iterationsValue
+
+      function getEdges(image) {
+        const canvas = document.createElement("canvas");
+        canvas.width = image.width;
+        canvas.height = image.height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(image, 0, 0);
+        const data = ctx.getImageData(0, 0, image.width, image.height).data;
+
+        function row(y, step = 1) {
+          const r = [];
+          for (let x = 0; x < image.width; x += step) {
+            const idx = (y * image.width + x) * 4;
+            r.push(data[idx], data[idx + 1], data[idx + 2]); // RGB
+          }
+          return r;
+        }
+        function col(x, step = 1) {
+          const c = [];
+          for (let y = 0; y < image.height; y += step) {
+            const idx = (y * image.width + x) * 4;
+            c.push(data[idx], data[idx + 1], data[idx + 2]);
+          }
+          return c;
+        }
+
+        return {
+          top: row(0),
+          bottom: row(image.height - 1),
+          left: col(0),
+          right: col(image.width - 1),
+        };
+      }
+
+      const edges = {};
+      for (const [id, img] of Object.entries(tiles)) {
+        edges[id] = getEdges(img);
+      }
+
+      function edgeDiff(a, b) {
+        let diff = 0;
+        for (let i = 0; i < a.length; i++) {
+          const d = a[i] - b[i];
+          diff += d * d;
+        }
+        return diff / a.length;
+      }
+
+      // --- positions in grid ---
+      const positions = [];
+      for (let r = 0; r < state.rows; r++) {
+        for (let c = 0; c < state.cols; c++) {
+          positions.push([r, c]);
+        }
+      }
+
+      // --- initial random placement ---
+      const ids = Object.keys(edges);
+      let placement = {};
+      for (const [pos, tile] of Object.entries(state.placements)) {
+        placement[pos] = tile;
+      }
+      function totalCost(placement) {
+        let cost = 0;
+        for (let [pos, tile] of Object.entries(placement)) {
+          if (!tile || !edges[tile]) continue; // skip if tile missing or bad
+
+          const [r, c] = pos.split(",").map(Number);
+          const e = edges[tile];
+
+          // right neighbor
+          const rightTile = placement[`${r},${c + 1}`];
+          if (c < state.cols - 1 && rightTile && edges[rightTile]) {
+            cost += edgeDiff(e.right, edges[rightTile].left);
+          }
+
+          // bottom neighbor
+          const bottomTile = placement[`${r + 1},${c}`];
+          if (r < state.rows - 1 && bottomTile && edges[bottomTile]) {
+            cost += edgeDiff(e.bottom, edges[bottomTile].top);
+          }
+        }
+        return cost;
+      }
+
+      // --- iterative improvement ---
+      let bestPlacement = { ...placement };
+      let bestScore = totalCost(bestPlacement);
+
+      for (let iter = 0; iter < iterations; iter++) {
+        // pick 2 random positions to swap
+        const [p1, p2] = positions.sort(() => 0.5 - Math.random()).slice(0, 2);
+        const key1 = p1.join(",");
+        const key2 = p2.join(",");
+
+        const newPlacement = { ...placement };
+        [newPlacement[key1], newPlacement[key2]] = [newPlacement[key2], newPlacement[key1]];
+
+        const score = totalCost(newPlacement);
+        if (score < bestScore) {
+          placement = newPlacement;
+          bestPlacement = newPlacement;
+          bestScore = score;
+
+          // let UI update every so often
+          if (iter % 100 === 0) {
+            state.placements = { ...bestPlacement };
+            await new Promise((resolve) => setTimeout(resolve, 0));
+          }
+        }
+      }
+
+      state.placements = bestPlacement;
+      console.log("Global solve finished. Best score:", bestScore);
+      layoutPlacedTiles()
+      renderPieces();
+      saveLocal()
+      hideModal()
+    }
+
+
+
+
+
+
+
+    // Click Handlers
+
+    async function resizeAndCentre() {
+      resizeBoard();
+
+      // Calculate grid dimensions in pixels
+      const w = state.cols * state.cell;
+      const h = state.rows * state.cell;
+
+      // Available viewport size (boardWrap inner area)
+      const vw = boardWrap.clientWidth;
+      const vh = boardWrap.clientHeight;
+
+      // Fit scale with margin (10%)
+      const scale = Math.min(vw / w, vh / h) * 0.9;
+      state.zoom = Math.max(0.01, Math.min(8, scale));
+
+      // Center the grid
+      state.panX = (vw - w * state.zoom) / 2;
+      state.panY = (vh - h * state.zoom) / 2;
+
+      applyTransform();
+      saveLocal();
+
+    }
+
+
+
+    // Toolbar controls
+
+
+    // Board Menu Handlers
+    els('menuRecentre').onclick = () => {
+      resizeAndCentre();
+    };
+
+    els('menuResetBoard').onclick = () => {
+      congratulationsStarted = false;
+      state.placements = {};
+      saveLocal();
+      layoutPlacedTiles();
+      renderPieces();
+      updateCount();
+      drawGridCells();
+      resizeBoard();
+    };
+
+    els('hintMenu').onclick = () => {
+      showHints();
+    };
+
+    els('menuRemoveIncorrect').onclick = () => {
+      removeIncorrectTiles();
+    };
+
+    function updateToggleMenu() {
+      const panel = els('referencePanel');
+      if (panel.style.display === 'none') {
+        els('menuToggleReference').innerText = 'Show Reference Image'; // Update button text
+      } else {
+        els('menuToggleReference').innerText = 'Hide Reference Image'; // Update button text
+
+      }
+
+    }
+    async function doToggleReference(show) {
+      const panel = els('referencePanel');
+      if (show === true) {
+        panel.style.display = 'flex';
+      } else {
+        panel.style.display = 'none';
+      }
+      updateToggleMenu();
+    }
+
+    els('menuToggleReference').onclick = () => {
+      const panel = els('referencePanel');
+      if (panel.style.display === 'none') {
+        doToggleReference(true)
+      } else {
+        doToggleReference(false);
+      }
+    };
+
+    // Solver Menu Handlers
+    els('menuSolveThisPuzzle').onclick = () => {
+      solveTilePuzzle();
+      resizeBoard();
+      saveLocal();
+    };
+
+
+
+    els('menuUseGreedySolver').onclick = () => {
+      useGreedySolver = !useGreedySolver; // Toggle boolean
+      updateSolverMenuDisplay(); // Update tick mark
+    };
+
+    els('menuUseProgressiveGreedySolver').onclick = () => {
+      solveProgressiveGreedySearch();
+    };
+
+
+
+    els('menuUseGlobalSearch').onclick = () => {
+      useGlobalSolver = !useGlobalSolver; // Toggle boolean
+      updateSolverMenuDisplay(); // Update tick mark
+    };
+
+    // Input field listeners
+    els('inputThreshold').oninput = () => {
+      thresholdValue = parseInt(els('inputThreshold').value);
+      if (isNaN(thresholdValue) || thresholdValue <= 0) {
+        // Handle invalid input if necessary, or revert to a default
+        // For now, just ensure it's a number
+        thresholdValue = 500; // Default if invalid
+      }
+      // No need to call updateSolverMenuDisplay() here as the input field itself is updated
+    };
+
+    els('inputIterations').oninput = () => {
+      iterationsValue = parseInt(els('inputIterations').value);
+      if (isNaN(iterationsValue) || iterationsValue <= 0) {
+        iterationsValue = 20000; // Default if invalid
+      }
+      // No need to call updateSolverMenuDisplay() here
+    };
+
+    async function exportPuzzleWithPlacement() {
+      showModal("please wait<br>Your image is being prepared for download", false)
+      const payload = {
+        folder: state.folder,
+        placements: state.placements  // { "0,0":"image_101.jpg", ... }
+      };
+
+      const response = await fetch('/exportPuzzle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `puzzle_${state.folder}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+      hideModal()
+    }
+
+    function removeIncorrectTiles() {
+      if (!manifest.solution) {
+        showModal("No solution is available to check against.", true);
+        return;
+      }
+
+      const incorrectPositions = [];
+      for (const [pos, placedPid] of Object.entries(state.placements)) {
+        // Check if the placed piece is not the correct one for that position
+        if (manifest.solution[pos] !== placedPid) {
+          incorrectPositions.push(pos);
+        }
+      }
+
+      if (incorrectPositions.length === 0) {
+        showModal("No incorrectly placed tiles were found.", true);
+        return;
+      }
+
+      // Remove each incorrect tile
+      for (const pos of incorrectPositions) {
+        returnPiece(pos);
+      }
+
+      showModal(`Removed ${incorrectPositions.length} incorrect tile(s).`, true);
+    }
+
+    // Return selected tile to pool
+
+    function returnPiece(pos) {
+      if (!pos) {
+        if (!state.selectedCell) {
+          alert('Click a state.placement tile first.');
+          return;
+        }
+        pos = state.selectedCell;
+      }
+
+      const pieceId = state.placements[pos];
+
+      if (!pieceId) return;
+
+      // 1. Update state
+      delete state.placements[pos];
+      drawGridCells();
+      if (state.selectedCell === pos) {
+        state.selectedCell = null;
+      }
+      highlightSelected(); // This will hide the highlight.
+
+      // 2. Remove the tile from the board view
+      const tileElement = board.querySelector(`.tile-container[data-pos="${pos}"]`);
+      if (tileElement) {
+        tileElement.remove();
+      }
+
+      // 3. Find the piece to add back to the list
+      const piece = state.pieces.find(p => p.id === pieceId);
+      if (piece) {
+        // 4. Add the piece back to the pieces list
+        const card = document.createElement('div');
+        card.className = 'piece';
+        card.draggable = true;
+        card.dataset.id = piece.id;
+        if (piece.name.toLowerCase() === "index.jpg") {
+          state.indexId = piece.id; // remember the reference piece
+        }
+        card.addEventListener('dragstart', e => {
+          e.dataTransfer.setData('text/pieceId', piece.id);
+          e.dataTransfer.effectAllowed = 'copyMove';
+        });
+        const cachedCanvas = imageCache[piece.id];
+        const img = document.createElement('canvas');
+        img.width = cachedCanvas.width;
+        img.height = cachedCanvas.height;
+        img.getContext('2d').drawImage(cachedCanvas, 0, 0);
+        img.alt = piece.name;
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        const dt = piece.date ? new Date(piece.date).toLocaleString() : '';
+        //        meta.textContent = `${piece.name}${dt ? `${dt}` : ''}`;
+        card.appendChild(img); card.appendChild(meta);
+        piecesList.appendChild(card);
+      }
+      renderPieces()
+      // 5. Update the count and save
+      updateCount();
+      saveLocal();
+    }
+
+
+    function createPieceElement(piece) {
+      const el = document.createElement("img");
+      el.src = piece.url;
+      el.draggable = true;
+      el.className = "piece";
+      el.title = piece.name;
+      el.dataset.id = piece.id;
+
+      // apply current slider size
+      el.style.width = pieceSizeSlider.value + "px";
+      el.style.height = pieceSizeSlider.value + "px";
+
+      return el;
+    }
+
+
+    // Listeners
+
+
+    // boardWrap
+    boardWrap.addEventListener('mousedown', e => {
+      if (e.button === 1 || e.button === 2 || e.buttons === 4 || e.shiftKey || e.metaKey || e.ctrlKey || e.altKey) {
+        e.preventDefault(); startPan(e);
+      }
+    });
+
+    boardWrap.addEventListener('mousemove', movePan);
+    window.addEventListener('mouseup', endPan);
+    boardWrap.addEventListener('contextmenu', e => { e.preventDefault(); });
+
+    // Zoom wheel
+    boardWrap.addEventListener('wheel', e => { e.preventDefault(); setZoom(state.zoom * (e.deltaY > 0 ? 0.9 : 1.111), { x: e.clientX, y: e.clientY }); }, { passive: false });
+
+
+    // Board click: select cell
+    boardWrap.addEventListener('click', e => {
+      const w = worldFromClient(e.clientX, e.clientY); const rc = nearestCell(w.x, w.y); state.selectedCell = `${rc.r},${rc.c}`; highlightSelected();
+    });
+
+    // Drag & drop onto board
+    boardWrap.addEventListener('dragover', e => {
+      e.preventDefault();
+      const w = worldFromClient(e.clientX, e.clientY);
+      const rc = nearestCell(w.x, w.y);
+
+      dropHint.hidden = false;
+      dropHint.style.left = (rc.c * state.cell) + 'px';
+      dropHint.style.top = (rc.r * state.cell) + 'px';
+      dropHint.style.width = state.cell + 'px';
+      dropHint.style.height = state.cell + 'px';
+    });
+
+    boardWrap.addEventListener('dragleave', () => { dropHint.hidden = true; });
+
+    boardWrap.addEventListener('drop', e => {
+      e.preventDefault();
+      console.log("Mouse Drop")
+
+      dropHint.hidden = true;
+
+      const pid = e.dataTransfer.getData('text/pieceId');
+      const fromPos = e.dataTransfer.getData('text/fromPos');
+      if (!pid) return;
+
+      // compute nearest cell
+      const w = worldFromClient(e.clientX, e.clientY);
+      const rc = nearestCell(w.x, w.y);
+      const k = `${rc.r},${rc.c}`;
+
+      // remove previous placement if needed
+      if (fromPos) {
+        delete state.placements[fromPos];
+        const oldEl = board.querySelector(`.tile-container[data-pos="${fromPos}"]`);
+        if (oldEl) oldEl.remove();
+      }
+
+      // replace existing tile at new cell if needed
+      const replaced = state.placements[k];
+      console.log("k: " + k + " / replaced: " + replaced)
+      if (replaced) {
+
+        const oldEl = board.querySelector(`.tile-container[data-pos="${k}"]`);
+        if (oldEl) {
+          returnPiece(k)
+        } oldEl.remove();
+      }
+
+      // assign new placement
+      state.placements[k] = pid;
+      drawGridCells();
+
+      // create just this tile element
+      const piece = state.pieces.find(p => p.id === pid);
+      if (piece) {
+        paintSingleTile(k, piece.id);
+      }
+      const el = piecesList.querySelector(`[data-id="${pid}"]`);
+      if (el) el.remove();
+
+      saveLocal();
+      updateCount();
+      if (replaced && replaced !== pid) {
+        status.textContent = `Replaced tile at ${k}`;
+      } else {
+        status.textContent = `Placed tile at ${k}`;
+      }
+    });
+
+
+
+
+    boardWrap.addEventListener('touchstart', e => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        lastTouchDist = getTouchDistance(e.touches);
+        lastCenter = getTouchCenter(e.touches);
+        pinchActive = true;
+      }
+    }, { passive: false });
+
+    boardWrap.addEventListener('touchmove', e => {
+      if (pinchActive && e.touches.length === 2) {
+        e.preventDefault();
+
+        // zoom
+        const dist = getTouchDistance(e.touches);
+        const center = getTouchCenter(e.touches);
+
+        if (lastTouchDist) {
+          const factor = dist / lastTouchDist;
+          setZoom(state.zoom * factor, center);
+        }
+
+        // pan
+        if (lastCenter) {
+          state.panX += (center.x - lastCenter.x);
+          state.panY += (center.y - lastCenter.y);
+          applyTransform();
+        }
+
+        lastTouchDist = dist;
+        lastCenter = center;
+      }
+    }, { passive: false });
+
+    boardWrap.addEventListener('touchend', e => {
+      if (e.touches.length < 2) {
+        pinchActive = false;
+        lastTouchDist = null;
+        lastCenter = null;
+      }
+    }, { passive: false });
+
+    function getTouchDistance(touches) {
+      return Math.hypot(
+        touches[0].clientX - touches[1].clientX,
+        touches[0].clientY - touches[1].clientY
+      );
+    }
+
+    function getTouchCenter(touches) {
+      return {
+        x: (touches[0].clientX + touches[1].clientX) / 2,
+        y: (touches[0].clientY + touches[1].clientY) / 2
+      };
+    }
+
+
+
+    // Board
+
+    board.addEventListener('touchstart', e => {
+      const img = e.target.closest('.tile');
+      if (!img) return;
+      const pid = state.placements[img.dataset.pos];
+      if (!pid) return;
+
+      longPressTimer = setTimeout(() => {
+        pieceTouchDrag = true;
+        startTouchDrag(pid, img.dataset.pos, img.src, e.touches[0].clientX, e.touches[0].clientY);
+      }, 400);
+    }, { passive: true });
+
+    board.addEventListener('touchend', e => {
+      if (pieceTouchDrag) {
+        clearTimeout(longPressTimer);
+        pieceTouchDrag = false;
+        endTouchDrag(e.changedTouches[0].clientX, e.changedTouches[0].clientY)
+      } else {
+        clearTimeout(longPressTimer);
+      }
+    }, { passive: true });
+
+    board.addEventListener('touchmove', e => {
+      if (!pieceTouchDrag) {
+        clearTimeout(longPressTimer);  // cancel if they scroll
+      } else {
+        moveTouchDrag(e.touches[0].clientX, e.touches[0].clientY)
+
+      }
+    }, { passive: true });
+
+
+    // referenceWrap
+
+    const refImg = els('referenceImg');
+    const wrap = els('referenceWrap');
+
+    // --- Mouse handling ---
+
+    let lastX, lastY;
+
+    wrap.addEventListener('mousedown', e => {
+      if (e.button === 2) { // right mouse
+        isPanning = true;
+        lastX = e.clientX;
+        lastY = e.clientY;
+        e.preventDefault();
+      }
+    });
+
+    wrap.addEventListener('mousemove', e => {
+      if (!isPanning) return;
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      refState.panX += dx;
+      refState.panY += dy;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      applyRefTransform();
+    });
+
+    wrap.addEventListener('mouseup', () => { isPanning = false; });
+    wrap.addEventListener('mouseleave', () => { isPanning = false; });
+
+    // prevent context menu on right click
+    wrap.addEventListener('contextmenu', e => e.preventDefault());
+
+    // --- Mouse wheel zoom ---
+    wrap.addEventListener('wheel', e => {
+      e.preventDefault();
+      const rect = wrap.getBoundingClientRect();
+      const offsetX = e.clientX - rect.left;
+      const offsetY = e.clientY - rect.top;
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+
+      // translate mouse position into image coords
+      const x = (offsetX - refState.panX) / refState.zoom;
+      const y = (offsetY - refState.panY) / refState.zoom;
+
+      // update zoom
+      refState.zoom *= zoomFactor;
+
+      // keep point under cursor fixed
+      refState.panX = offsetX - x * refState.zoom;
+      refState.panY = offsetY - y * refState.zoom;
+
+      applyRefTransform();
+    }, { passive: false });
+
+    // --- Touch handling ---
+    let lastTouches = [];
+
+    wrap.addEventListener('touchstart', e => {
+      lastTouches = [...e.touches].map(t => ({ x: t.clientX, y: t.clientY }));
+    }, { passive: false });
+
+    wrap.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const touches = [...e.touches].map(t => ({ x: t.clientX, y: t.clientY }));
+
+      if (touches.length === 1 && lastTouches.length === 1) {
+        // pan
+        const dx = touches[0].x - lastTouches[0].x;
+        const dy = touches[0].y - lastTouches[0].y;
+        refState.panX += dx;
+        refState.panY += dy;
+      } else if (touches.length === 2 && lastTouches.length === 2) {
+        // pinch zoom
+        const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+        const prevDist = dist(lastTouches[0], lastTouches[1]);
+        const newDist = dist(touches[0], touches[1]);
+        const zoomFactor = newDist / prevDist;
+
+        // midpoint
+        const midX = (touches[0].x + touches[1].x) / 2;
+        const midY = (touches[0].y + touches[1].y) / 2;
+        const rect = wrap.getBoundingClientRect();
+        const offsetX = midX - rect.left;
+        const offsetY = midY - rect.top;
+
+        const x = (offsetX - refState.panX) / refState.zoom;
+        const y = (offsetY - refState.panY) / refState.zoom;
+
+        refState.zoom *= zoomFactor;
+        refState.panX = offsetX - x * refState.zoom;
+        refState.panY = offsetY - y * refState.zoom;
+      }
+
+      lastTouches = touches;
+      applyRefTransform();
+    }, { passive: false });
+
+    wrap.addEventListener('touchend', async (e) => {
+      lastTouches = [...e.touches].map(t => ({ x: t.clientX, y: t.clientY }));
+      await updateCount()
+
+    });
+
+
+    // pieceSizeInput
+
+    pieceSizeInput.addEventListener('input', e => {
+      const size = e.target.value + 'px';
+      document.documentElement.style.setProperty('--piece-size', size);
+    });
+
+    pieceSizeInput.addEventListener('wheel', e => {
+      e.preventDefault(); // stop the page from scrolling
+      if (e.deltaY < 0) {
+        // scroll up = increase size
+        pieceSizeInput.value = Math.min(pieceSizeInput.max, Number(pieceSizeInput.value) + step);
+      } else {
+        // scroll down = decrease size
+        pieceSizeInput.value = Math.max(pieceSizeInput.min, Number(pieceSizeInput.value) - step);
+      }
+
+      // trigger input event so the board updates
+      pieceSizeInput.dispatchEvent(new Event('input', { bubbles: true }));
+    }, { passive: false });
+
+    // piecesList
+
+    // Attach touch handlers for pieces (pool)
+    piecesList.addEventListener('touchstart', e => {
+      const card = e.target.closest('.piece');
+      if (!card) return;
+
+      const pieceId = card.dataset.id;
+      const piece = state.pieces.find(p => p.id === pieceId);
+      if (!piece) return;
+
+      pieceTouchDrag = false;
+
+      longPressTimer = setTimeout(() => {
+        e.preventDefault(); // block scroll only now
+        e.stopPropagation();
+        pieceTouchDrag = true;
+        startTouchDrag(piece.id, null, piece.url, e.touches[0].clientX, e.touches[0].clientY);
+      }, 400);
+    }, { passive: false });
+
+    piecesList.addEventListener('touchend', e => {
+      if (pieceTouchDrag) {
+        clearTimeout(longPressTimer);
+        pieceTouchDrag = false;
+        endTouchDrag(e.changedTouches[0].clientX, e.changedTouches[0].clientY)
+      } else {
+        clearTimeout(longPressTimer);
+      }
+    }, { passive: true });
+
+    piecesList.addEventListener('touchmove', e => {
+      if (!pieceTouchDrag) {
+        clearTimeout(longPressTimer);  // cancel if they scroll
+      } else {
+        moveTouchDrag(e.touches[0].clientX, e.touches[0].clientY)
+
+      }
+    }, { passive: true });
+
+    pieceTouchDrag = null
+    //refDivider
+
+    refDivider.addEventListener('mousedown', e => {
+      refDivider.classList.add('active');
+      dragging = true;
+      activeDivider = 'ref';
+      startX = e.clientX;
+      startW = refPanel.getBoundingClientRect().width;
+      document.body.style.cursor = 'col-resize';
+    });
+
+    refDivider.addEventListener('touchstart', e => {
+      e.preventDefault();
+      refDivider.classList.add('active');
+      dragging = true;
+      activeDivider = 'ref';
+      startX = e.touches[0].clientX;
+      startW = refPanel.getBoundingClientRect().width;
+    }, { passive: false });
+
+
+
+    // divider
+
+    divider.addEventListener('mousedown', e => {
+      divider.classList.add('active');
+      dragging = true;
+      activeDivider = 'main';
+      startX = e.clientX;
+      startW = right.getBoundingClientRect().width;
+      document.body.style.cursor = 'col-resize';
+    });
+
+    divider.addEventListener('touchstart', e => {
+      e.preventDefault();
+      divider.classList.add('active');
+      dragging = true;
+      activeDivider = 'main';
+      startX = e.touches[0].clientX;
+      startW = right.getBoundingClientRect().width;
+    }, { passive: false });
+
+    // Window
+
+    window.addEventListener('mousemove', e => {
+      if (!dragging) return;
+      const dx = e.clientX - startX;
+
+      if (activeDivider === 'ref') {
+        refPanel.style.width = (startW + dx) + 'px';
+      } else if (activeDivider === 'main') {
+        right.style.width = (startW - dx) + 'px';
+      }
+    });
+
+
+    window.addEventListener('mouseup', () => {
+
+      divider.classList.remove('active');
+      refDivider.classList.remove('active');
+      if (dragging) {
+        dragging = false;
+        activeDivider = null;
+        document.body.style.cursor = 'default';
+      }
+    });
+
+    window.addEventListener('touchmove', e => {
+      if (!dragging) return;
+      const dx = e.touches[0].clientX - startX;
+
+      if (activeDivider === 'ref') {
+        refPanel.style.width = (startW + dx) + 'px';
+      } else if (activeDivider === 'main') {
+        right.style.width = (startW - dx) + 'px';
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchend', () => {
+      divider.classList.remove('active');
+      refDivider.classList.remove('active');
+
+      if (dragging) {
+        dragging = false;
+        activeDivider = null;
+        document.body.style.cursor = 'default';
+      }
+    });
+
+
+    ensureStorageKeys();  // creates storage entries for any new maps
+
+    const details = loadDetails();
+    state.folder = details.currentMap;
+
+    const saved = loadLocal(state.folder);
+    if (saved) {
+      Object.assign(state, saved);
+    }
+
+    init();
+  </script>
+</body>
+
+</html>
